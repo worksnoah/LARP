@@ -97,6 +97,13 @@
       <section id="screen-result" class="screen result-screen" aria-labelledby="result-headline">
         <div id="result-energy" class="result-energy" aria-hidden="true"></div>
         <header class="result-header"><p class="eyebrow">Official oracle decision // Round complete</p><h2 id="result-headline">YOU LARPED THEM</h2><p id="match-commentary" class="match-commentary"></p></header>
+        <section class="eval-panel" aria-labelledby="eval-title">
+          <div class="eval-heading"><div><p class="eyebrow">Round telemetry // 2-second scan</p><h3 id="eval-title">LARP EVAL</h3></div><strong id="eval-time">02s</strong></div>
+          <div class="eval-sides" aria-hidden="true"><span>YOU <b id="eval-you-score">0.0</b></span><span><b id="eval-them-score">0.0</b> THEM</span></div>
+          <div id="eval-meter" class="eval-meter" role="img" aria-label="Even larp advantage"><i class="eval-center"></i><span id="eval-marker" class="eval-marker"></span></div>
+          <div id="eval-ticks" class="eval-ticks" aria-label="Evaluation timeline"></div>
+          <p id="eval-callout" class="eval-callout" aria-live="polite">The oracle is reconstructing the round.</p>
+        </section>
         <div class="scoreboard">
           <article id="your-score-card" class="score-card score-card--you">
             <p class="score-owner">You</p><strong id="your-score" class="big-score">0.0</strong><p id="your-rank" class="rank">NPC</p><p id="your-comment" class="player-comment"></p>
@@ -106,6 +113,10 @@
             <p class="score-owner">Them</p><strong id="their-score" class="big-score">0.0</strong><p id="their-rank" class="rank">NPC</p><p id="their-comment" class="player-comment"></p>
           </article>
         </div>
+        <section class="evidence-board" aria-label="Scoring evidence">
+          <article><header><span>You // Evidence</span><b id="your-evidence-total">+0.0 bonus</b></header><div id="your-evidence" class="evidence-list"></div></article>
+          <article><header><span>Them // Evidence</span><b id="their-evidence-total">+0.0 bonus</b></header><div id="their-evidence" class="evidence-list"></div></article>
+        </section>
         <div id="category-board" class="category-board"></div>
         <div class="result-reward"><strong id="points-change">+0 LARP</strong><span id="streak-display"></span><small id="session-total">Session bank: 0</small></div>
         <div class="result-actions"><button id="next-button" class="button button--primary" type="button">Next Larp <span>↗</span></button><button id="exit-button" class="button button--quiet" type="button">Exit</button></div>

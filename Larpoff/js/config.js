@@ -1,5 +1,5 @@
-export const SUPABASE_URL = "PASTE_SUPABASE_URL_HERE";
-export const SUPABASE_ANON_KEY = "PASTE_SUPABASE_ANON_KEY_HERE";
+export const SUPABASE_URL = "https://avmdsxgqgamhlftlezis.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2bWRzeGdxZ2FtaGxmdGxlemlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgzNjYyNjksImV4cCI6MjEwMzk0MjI2OX0.TlnIWjAq6hTChK4Qm0rFH25yNCcZm5yPGIqUZbqPKEk";
 
 export const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },

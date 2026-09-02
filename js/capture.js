@@ -1,6 +1,6 @@
 import { CAPTURE_TIMES_SECONDS } from "./config.js";
 
-export function captureFrame(video, maxDimension = 640, quality = .68) {
+export function captureFrame(video, maxDimension = 512, quality = .6) {
   if (!video?.videoWidth || !video?.videoHeight) throw new Error("Video frame is not ready");
   const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
   const width = Math.max(1, Math.round(video.videoWidth * scale)); const height = Math.max(1, Math.round(video.videoHeight * scale));

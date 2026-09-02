@@ -1,7 +1,9 @@
 import { getSupabase, fetchMatch } from "./matchmaking.js";
+import { CAPTURE_TIMES_SECONDS } from "./config.js";
 
 export async function requestJudgment(matchId, clientId, frames) {
-  if (frames.playerA.length !== 3 || frames.playerB.length !== 3) throw new Error("The oracle did not receive all six frames.");
+  const expected = CAPTURE_TIMES_SECONDS.length;
+  if (frames.playerA.length !== expected || frames.playerB.length !== expected) throw new Error(`The oracle needs all ${expected * 2} frames.`);
   const { data, error } = await getSupabase().functions.invoke("judge-larp", {
     body: { match_id: matchId, client_id: clientId, images: frames },
   });

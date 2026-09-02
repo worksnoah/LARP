@@ -1,0 +1,4 @@
+project_id = "larpoff"
+
+[functions.judge-larp]
+verify_jwt = true

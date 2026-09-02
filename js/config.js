@@ -10,7 +10,7 @@ export const ICE_SERVERS = [
 ];
 
 export const MATCH_DURATION_SECONDS = 20;
-export const CAPTURE_TIMES_SECONDS = [4, 10, 16];
+export const CAPTURE_TIMES_SECONDS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
 
 export const AUDIO_TRACKS = [
   "./assets/audio/track-1.mp3",

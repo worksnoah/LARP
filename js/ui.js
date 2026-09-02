@@ -12,7 +12,7 @@ const screens = {
 
 const searchPhrases = ["Scanning the larpverse...", "Looking for a worthy opponent...", "Measuring global aura...", "Locating flex signal..."];
 const judgePhrases = ["Scanning assets...", "Measuring aura...", "Calculating larp pressure...", "Verifying flex...", "Assessing commitment...", "Consulting the oracle..."];
-let phraseTimer = null;
+let phraseTimer = null, evalTimer = null;
 
 export const elements = {
   start: $("#start-button"), flee: $("#flee-button"), leave: $("#leave-button"),
@@ -94,9 +94,59 @@ export function normalizeResult(raw) {
   const clamp = (value) => Math.max(0, Math.min(10, Number(value) || 0));
   const player = (value = {}) => ({
     item_larp: clamp(value.item_larp), aura: clamp(value.aura), commitment: clamp(value.commitment), creativity: clamp(value.creativity),
-    notable_items: Array.isArray(value.notable_items) ? value.notable_items.slice(0, 3).map(String) : [], comment: String(value.comment || "The oracle remains mysteriously impressed."),
+    notable_items: Array.isArray(value.notable_items) ? value.notable_items.slice(0, 5).map(String) : [],
+    evidence: Array.isArray(value.evidence) ? value.evidence.slice(0, 5).map((item = {}) => ({
+      label: String(item.label || "Visible flex").slice(0, 48), observation: String(item.observation || "The oracle noticed.").slice(0, 120),
+      bonus: Math.max(0, Math.min(2, Number(item.bonus) || 0)),
+    })) : [],
+    comment: String(value.comment || "The oracle remains mysteriously impressed."),
   });
-  return { playerA: player(raw?.playerA), playerB: player(raw?.playerB), match_commentary: String(raw?.match_commentary || "A historic collision of incompatible aura.") };
+  const playerA = player(raw?.playerA), playerB = player(raw?.playerB);
+  const fallbackA = weightedScore(playerA), fallbackB = weightedScore(playerB);
+  const sourceTimeline = Array.isArray(raw?.timeline) ? raw.timeline : [];
+  const timeline = Array.from({ length: 10 }, (_, index) => {
+    const moment = sourceTimeline[index] || {};
+    return { second: (index + 1) * 2, playerA: clamp(moment.playerA ?? fallbackA), playerB: clamp(moment.playerB ?? fallbackB), callout: String(moment.callout || "The pressure holds steady.").slice(0, 120) };
+  });
+  return { playerA, playerB, timeline, match_commentary: String(raw?.match_commentary || "A historic collision of incompatible aura.") };
+}
+
+function renderEvidence(node, totalNode, evidence, notableItems) {
+  node.replaceChildren();
+  const rows = evidence.length ? evidence : notableItems.map((label) => ({ label, observation: "Visible item logged by the oracle.", bonus: 0 }));
+  if (!rows.length) {
+    const empty = document.createElement("p"); empty.className = "evidence-empty"; empty.textContent = "No concrete prop bonus detected."; node.append(empty);
+  } else rows.forEach((item) => {
+    const row = document.createElement("div"); row.className = "evidence-item";
+    const label = document.createElement("strong"); label.textContent = item.label;
+    const observation = document.createElement("span"); observation.textContent = item.observation;
+    const bonus = document.createElement("b"); bonus.textContent = `+${item.bonus.toFixed(1)}`;
+    row.append(label, observation, bonus); node.append(row);
+  });
+  const total = rows.reduce((sum, item) => sum + item.bonus, 0); totalNode.textContent = `+${total.toFixed(1)} bonus`;
+}
+
+function renderEvalReplay(timeline, youAreA) {
+  clearInterval(evalTimer); evalTimer = null;
+  const ticks = $("#eval-ticks"); ticks.replaceChildren();
+  const buttons = timeline.map((moment, index) => {
+    const button = document.createElement("button"); button.type = "button"; button.className = "eval-tick";
+    button.textContent = `${moment.second}s`; button.setAttribute("aria-label", `Show evaluation at ${moment.second} seconds`);
+    button.addEventListener("click", () => { clearInterval(evalTimer); evalTimer = null; showMoment(index); });
+    ticks.append(button); return button;
+  });
+  const showMoment = (index) => {
+    const moment = timeline[index]; const you = youAreA ? moment.playerA : moment.playerB; const them = youAreA ? moment.playerB : moment.playerA;
+    const boundary = Math.max(8, Math.min(92, 50 + (you - them) * 5));
+    $("#eval-time").textContent = `${String(moment.second).padStart(2, "0")}s`;
+    $("#eval-you-score").textContent = you.toFixed(1); $("#eval-them-score").textContent = them.toFixed(1);
+    $("#eval-marker").style.left = `${boundary}%`; $("#eval-meter").style.background = `linear-gradient(90deg,var(--lime) 0 ${boundary}%,var(--purple) ${boundary}% 100%)`;
+    $("#eval-meter").setAttribute("aria-label", `${you > them ? "You" : them > you ? "Opponent" : "Neither player"} leading at ${moment.second} seconds, ${you.toFixed(1)} to ${them.toFixed(1)}`);
+    $("#eval-callout").textContent = moment.callout; buttons.forEach((button, tickIndex) => button.classList.toggle("is-active", tickIndex === index));
+  };
+  let index = 0; showMoment(index);
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) evalTimer = setInterval(() => { index += 1; if (index >= timeline.length) { clearInterval(evalTimer); evalTimer = null; return; } showMoment(index); }, 900);
+  else showMoment(timeline.length - 1);
 }
 
 export function renderResult(raw, match, clientId, updateStats) {
@@ -112,6 +162,9 @@ export function renderResult(raw, match, clientId, updateStats) {
   $("#your-rank").textContent = yourRank; $("#your-rank").className = rankClass(yourRank);
   $("#their-rank").textContent = theirRank; $("#their-rank").className = rankClass(theirRank);
   $("#your-comment").textContent = you.comment; $("#their-comment").textContent = them.comment;
+  renderEvalReplay(result.timeline, youAreA);
+  renderEvidence($("#your-evidence"), $("#your-evidence-total"), you.evidence, you.notable_items);
+  renderEvidence($("#their-evidence"), $("#their-evidence-total"), them.evidence, them.notable_items);
   $("#your-score-card").classList.toggle("is-winner", outcome === "win"); $("#their-score-card").classList.toggle("is-winner", outcome === "loss");
   const labels = [["item_larp", "Item larp"], ["aura", "Aura"], ["commitment", "Commitment"], ["creativity", "Creativity"]];
   $("#category-board").innerHTML = labels.flatMap(([key, label]) => [
@@ -134,6 +187,7 @@ function animateNumber(node, target) {
 }
 
 export function resetUI() {
+  clearInterval(evalTimer); evalTimer = null;
   elements.remoteVideo.srcObject = null; $("#screen-arena").classList.remove("is-final-five");
   $("#battle-timer").classList.remove("is-urgent"); setTimer(20); hideCountdown();
   $("#judge-still-a").style.backgroundImage = ""; $("#judge-still-b").style.backgroundImage = "";

@@ -1,6 +1,6 @@
 # LARP-OFF
 
-LARP-OFF is a friends-only, anonymous 1v1 video game in which two people get 20 seconds to out-larp each other. WebRTC carries live camera and microphone media directly between peers. Supabase handles temporary matchmaking and signaling. At the bell, Player A sends six compressed still frames—three per player—to a protected Supabase Edge Function, which asks `gpt-4o-mini` for one comparative verdict.
+LARP-OFF is a friends-only, anonymous 1v1 video game in which two people get 20 seconds to out-larp each other. WebRTC carries live camera and microphone media directly between peers. Supabase handles temporary matchmaking and signaling. At the bell, Player A sends twenty compressed still frames—ten per player—to a protected Supabase Edge Function, which asks `gpt-4o-mini` for one comparative verdict and a 10-step evaluation timeline.
 
 No accounts, chat, recordings, permanent image storage, frontend build, or custom server are involved.
 
@@ -17,11 +17,11 @@ No accounts, chat, recordings, permanent image storage, frontend build, or custo
          ▼                                             ▼
 ┌──────────────────┐                       ┌───────────────────────┐
 │ Browser: Player B│                       │ Edge: judge-larp      │
-│ GitHub Pages     │                       │ 6 JPEGs → OpenAI     │
+│ GitHub Pages     │                       │ 20 JPEGs → OpenAI    │
 └──────────────────┘                       └───────────────────────┘
 ```
 
-Player A is deterministic: the oldest waiting visitor is Player A, creates the WebRTC offer, schedules the shared start time, captures both feeds at 4/10/16 seconds, and makes the only judging request. Player B receives the verdict by Realtime Broadcast and polls the temporary match record as a fallback.
+Player A is deterministic: the oldest waiting visitor is Player A, creates the WebRTC offer, schedules the shared start time, captures both feeds every two seconds from 2 through 20 seconds, and makes the only judging request. Player B receives the verdict by Realtime Broadcast and polls the temporary match record as a fallback.
 
 ## Repository
 
@@ -35,7 +35,7 @@ js/ui.js                      Rendering and result/rank calculations
 js/matchmaking.js             Atomic RPC queue client
 js/webrtc.js                  P2P media and Realtime signaling
 js/audio.js                   Mobile-safe Web Audio music system
-js/capture.js                 Six resized in-memory JPEG frames
+js/capture.js                 Twenty resized in-memory JPEG frames
 js/judge.js                   Edge Function request and result recovery
 assets/audio/                 Your MP3s (not supplied)
 supabase/migrations/          Database schema and protected RPCs
@@ -236,7 +236,7 @@ Video and microphone tracks travel directly between peers. Supabase Realtime car
 
 - Confirm `OPENAI_API_KEY` is set with `supabase secrets list`.
 - Check **Supabase Dashboard → Edge Functions → judge-larp → Logs**.
-- Verify the match status reached `judging`, the caller is `player_a`, and six JPEG frames were sent.
+- Verify the match status reached `judging`, the caller is `player_a`, and twenty JPEG frames were sent.
 - Check OpenAI project access, quota, and `gpt-4o-mini` availability.
 - Player A can retry from the themed error screen. The database caps a match at three attempts; Player B polls the saved result in case it missed the broadcast.
 

@@ -1,4 +1,4 @@
-import { CAPTURE_TIMES_SECONDS } from "./config.js";
+import { CAPTURE_TIMES_SECONDS } from "./config.js?v=20260902c";
 
 export function captureFrame(video, maxDimension = 512, quality = .6) {
   if (!video?.videoWidth || !video?.videoHeight) throw new Error("Video frame is not ready");

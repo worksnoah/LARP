@@ -1,15 +1,15 @@
 import { AppState, app, getClientId, resetMatchState, transition, updateSession } from "./state.js";
-import { CAPTURE_TIMES_SECONDS, isConfigured, MATCH_DURATION_SECONDS } from "./config.js";
-import { initUI, elements, attachLocalStream, attachRemoteStream, setConnecting, renderCountdown, hideCountdown, setTimer, setJudgeStills, renderResult, resetUI, showConfigHint } from "./ui.js";
-import { Matchmaker, getSupabase, updateMatchStatus, abandonMatch } from "./matchmaking.js";
-import { PeerSession } from "./webrtc.js";
-import { BattleAudio } from "./audio.js";
-import { FrameCollector, captureFrame } from "./capture.js";
-import { requestJudgment, waitForPersistedResult } from "./judge.js";
+import { CAPTURE_TIMES_SECONDS, isConfigured, MATCH_DURATION_SECONDS } from "./config.js?v=20260902c";
+import { initUI, elements, attachLocalStream, attachRemoteStream, setConnecting, renderCountdown, hideCountdown, setTimer, setJudgeStills, renderResult, resetUI, showConfigHint, startLiveEvaluation, updateLiveEvaluation } from "./ui.js?v=20260902c";
+import { Matchmaker, getSupabase, updateMatchStatus, abandonMatch } from "./matchmaking.js?v=20260902c";
+import { PeerSession } from "./webrtc.js?v=20260902c";
+import { BattleAudio } from "./audio.js?v=20260902c";
+import { FrameCollector, captureFrame } from "./capture.js?v=20260902c";
+import { requestJudgment, requestLiveEvaluation, waitForPersistedResult } from "./judge.js?v=20260902c";
 
 const audio = new BattleAudio();
 let matchmaker = null, collector = null, countdownTimer = null, battleFrame = null, resultPollToken = 0;
-let currentErrorAction = null, remoteMediaReady = false, opponentMediaReady = false, judgingInFlight = false;
+let currentErrorAction = null, remoteMediaReady = false, opponentMediaReady = false, judgingInFlight = false, latestPulseSecond = 0;
 
 initUI();
 setTimer(MATCH_DURATION_SECONDS);
@@ -84,6 +84,7 @@ function handleMatchEvent(event) {
   if (!event || event.sender === getClientId()) return;
   if (event.type === "media-ready") { opponentMediaReady = true; maybeCoordinateStart(); }
   if (event.type === "match-start") scheduleMatch(event);
+  if (event.type === "live-eval" && event.pulse) applyLiveEvaluation(event.pulse);
   if (event.type === "judge-result" && event.result) finishWithResult(event.result);
   if (event.type === "opponent-left") handleOpponentLeft();
 }
@@ -118,9 +119,10 @@ function scheduleMatch(event) {
 
 function beginBattle(startAt, duration = MATCH_DURATION_SECONDS, trackIndex = app.match?.track_index) {
   if (app.battleStarted || !app.match) return; app.battleStarted = true; transition(AppState.BATTLE);
+  latestPulseSecond = 0; startLiveEvaluation();
   const elapsed = Math.max(0, (Date.now() - startAt) / 1000); audio.play(trackIndex, elapsed);
   if (app.peer?.isPlayerA) {
-    collector = new FrameCollector(elements.localVideo, elements.remoteVideo); app.frames = collector.frames; collector.start();
+    collector = new FrameCollector(elements.localVideo, elements.remoteVideo); app.frames = collector.frames; collector.start(scoreCapturedFrame);
     updateMatchStatus(app.match.id, getClientId(), "battle").catch(() => {});
   }
   const endAt = startAt + duration * 1000;
@@ -130,6 +132,22 @@ function beginBattle(startAt, duration = MATCH_DURATION_SECONDS, trackIndex = ap
     if (seconds <= 0) endBattle(); else battleFrame = requestAnimationFrame(tick);
   };
   tick();
+}
+
+async function scoreCapturedFrame(second, frames) {
+  if (!app.peer?.isPlayerA || !app.match) return;
+  const matchId = app.match.id, imageA = frames.playerA.at(-1), imageB = frames.playerB.at(-1);
+  try {
+    const pulse = await requestLiveEvaluation(matchId, getClientId(), second, imageA, imageB);
+    if (app.match?.id !== matchId) return;
+    applyLiveEvaluation(pulse); await app.peer?.broadcast("live-eval", { pulse });
+  } catch (error) { console.warn("Live evaluation skipped", error); }
+}
+
+function applyLiveEvaluation(pulse) {
+  const second = Number(pulse?.second) || 0;
+  if (second < latestPulseSecond || !app.peer) return;
+  latestPulseSecond = second; updateLiveEvaluation(pulse, app.peer.isPlayerA);
 }
 
 async function endBattle() {

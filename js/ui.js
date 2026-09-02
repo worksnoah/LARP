@@ -68,6 +68,27 @@ export function setTimer(seconds) {
   $("#screen-arena").classList.toggle("is-final-five", safe <= 5 && safe > 0);
 }
 
+export function startLiveEvaluation() {
+  $("#screen-arena").classList.add("is-live-eval");
+  $("#live-eval-time").textContent = "Waiting for 04s scan";
+  $("#live-eval-you").textContent = "—"; $("#live-eval-them").textContent = "—";
+  $("#live-eval-callout").textContent = "Present your strongest larp.";
+  $("#live-eval-marker").style.left = "50%";
+  $("#live-eval-meter").style.background = "linear-gradient(90deg,var(--lime) 0 50%,var(--purple) 50% 100%)";
+}
+
+export function updateLiveEvaluation(pulse, youAreA) {
+  const clamp = (value) => Math.max(0, Math.min(10, Number(value) || 0));
+  const you = clamp(youAreA ? pulse.playerA : pulse.playerB), them = clamp(youAreA ? pulse.playerB : pulse.playerA);
+  const boundary = Math.max(8, Math.min(92, 50 + (you - them) * 5));
+  $("#live-eval-time").textContent = `${String(pulse.second).padStart(2, "0")}s scan`;
+  $("#live-eval-you").textContent = you.toFixed(1); $("#live-eval-them").textContent = them.toFixed(1);
+  $("#live-eval-callout").textContent = String(pulse.callout || "The pressure is building.");
+  $("#live-eval-marker").style.left = `${boundary}%`;
+  $("#live-eval-meter").style.background = `linear-gradient(90deg,var(--lime) 0 ${boundary}%,var(--purple) ${boundary}% 100%)`;
+  $("#live-eval-meter").setAttribute("aria-label", `${you > them ? "You" : them > you ? "Opponent" : "Neither player"} leading at ${pulse.second} seconds, ${you.toFixed(1)} to ${them.toFixed(1)}`);
+}
+
 export function setJudgeStills(frameA, frameB) {
   if (frameA) $("#judge-still-a").style.backgroundImage = `url(${frameA})`;
   if (frameB) $("#judge-still-b").style.backgroundImage = `url(${frameB})`;
@@ -104,9 +125,9 @@ export function normalizeResult(raw) {
   const playerA = player(raw?.playerA), playerB = player(raw?.playerB);
   const fallbackA = weightedScore(playerA), fallbackB = weightedScore(playerB);
   const sourceTimeline = Array.isArray(raw?.timeline) ? raw.timeline : [];
-  const timeline = Array.from({ length: 10 }, (_, index) => {
+  const timeline = Array.from({ length: 5 }, (_, index) => {
     const moment = sourceTimeline[index] || {};
-    return { second: (index + 1) * 2, playerA: clamp(moment.playerA ?? fallbackA), playerB: clamp(moment.playerB ?? fallbackB), callout: String(moment.callout || "The pressure holds steady.").slice(0, 120) };
+    return { second: (index + 1) * 4, playerA: clamp(moment.playerA ?? fallbackA), playerB: clamp(moment.playerB ?? fallbackB), callout: String(moment.callout || "The pressure holds steady.").slice(0, 120) };
   });
   return { playerA, playerB, timeline, match_commentary: String(raw?.match_commentary || "A historic collision of incompatible aura.") };
 }
@@ -188,7 +209,7 @@ function animateNumber(node, target) {
 
 export function resetUI() {
   clearInterval(evalTimer); evalTimer = null;
-  elements.remoteVideo.srcObject = null; $("#screen-arena").classList.remove("is-final-five");
+  elements.remoteVideo.srcObject = null; $("#screen-arena").classList.remove("is-final-five", "is-live-eval");
   $("#battle-timer").classList.remove("is-urgent"); setTimer(20); hideCountdown();
   $("#judge-still-a").style.backgroundImage = ""; $("#judge-still-b").style.backgroundImage = "";
 }

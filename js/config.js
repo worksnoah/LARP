@@ -7,8 +7,8 @@ export const ICE_SERVERS = [
 ];
 
 export const MATCH_DURATION_SECONDS = 20;
-// One frame from each player every two seconds for the full round.
-export const CAPTURE_TIMES_SECONDS = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
+// Five evenly spaced snapshots from each player across the full round.
+export const CAPTURE_TIMES_SECONDS = [4, 8, 12, 16, 20];
 export const AUDIO_TRACKS = [
   "./assets/audio/track-1.mp3",
   "./assets/audio/track-2.mp3",

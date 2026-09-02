@@ -1,5 +1,5 @@
 import { AppState, app, getClientId, resetMatchState, transition, updateSession } from "./state.js";
-import { isConfigured, MATCH_DURATION_SECONDS } from "./config.js";
+import { CAPTURE_TIMES_SECONDS, isConfigured, MATCH_DURATION_SECONDS } from "./config.js";
 import { initUI, elements, attachLocalStream, attachRemoteStream, setConnecting, renderCountdown, hideCountdown, setTimer, setJudgeStills, renderResult, resetUI, showConfigHint } from "./ui.js";
 import { Matchmaker, getSupabase, updateMatchStatus, abandonMatch } from "./matchmaking.js";
 import { PeerSession } from "./webrtc.js";
@@ -137,8 +137,9 @@ async function endBattle() {
   const frames = collector?.stop() || app.frames;
   if (app.peer?.isPlayerA && frames) {
     try {
-      while (frames.playerA.length < 3) frames.playerA.push(captureFrame(elements.localVideo));
-      while (frames.playerB.length < 3) frames.playerB.push(captureFrame(elements.remoteVideo));
+      const expected = CAPTURE_TIMES_SECONDS.length;
+      while (frames.playerA.length < expected) frames.playerA.push(captureFrame(elements.localVideo));
+      while (frames.playerB.length < expected) frames.playerB.push(captureFrame(elements.remoteVideo));
     } catch {}
   }
   const lastA = app.peer?.isPlayerA ? frames?.playerA.at(-1) : safeCapture(elements.localVideo);
@@ -157,7 +158,7 @@ async function judgeAsCoordinator() {
     await app.peer?.broadcast("judge-result", { result }); finishWithResult(result);
   } catch (error) {
     console.error(error); currentErrorAction = () => { transition(AppState.JUDGING); judgeAsCoordinator(); };
-    transition(AppState.CONNECTION_ERROR, { error: { code: "ORACLE PROCESS FAILURE", title: "THE ORACLE CHOKED", message: error.message || "AI judging failed. Your six frames remain ready for another attempt.", action: "RETRY JUDGING" } });
+    transition(AppState.CONNECTION_ERROR, { error: { code: "ORACLE PROCESS FAILURE", title: "THE ORACLE CHOKED", message: error.message || "AI judging failed. Your round frames remain ready for another attempt.", action: "RETRY JUDGING" } });
   } finally { judgingInFlight = false; }
 }
 

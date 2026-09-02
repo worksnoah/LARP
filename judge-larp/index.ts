@@ -6,7 +6,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
 
-const FRAME_COUNT = 10;
+const CAPTURE_SECONDS = [4, 8, 12, 16, 20] as const;
+const FRAME_COUNT = CAPTURE_SECONDS.length;
 
 const schema = {
   type: "object", additionalProperties: false, required: ["playerA", "playerB", "timeline", "match_commentary"],
@@ -30,7 +31,7 @@ const schema = {
     moment: {
       type: "object", additionalProperties: false, required: ["second", "playerA", "playerB", "callout"],
       properties: {
-        second: { type: "integer", minimum: 2, maximum: 20 },
+        second: { type: "integer", minimum: 4, maximum: 20 },
         playerA: { type: "number", minimum: 0, maximum: 10 },
         playerB: { type: "number", minimum: 0, maximum: 10 },
         callout: { type: "string", minLength: 1, maxLength: 120 },
@@ -38,12 +39,11 @@ const schema = {
     },
     player: {
       type: "object", additionalProperties: false,
-      required: ["item_larp", "aura", "commitment", "creativity", "notable_items", "evidence", "comment"],
+      required: ["item_larp", "aura", "commitment", "creativity", "evidence", "comment"],
       properties: {
         item_larp: { type: "number", minimum: 0, maximum: 10 }, aura: { type: "number", minimum: 0, maximum: 10 },
         commitment: { type: "number", minimum: 0, maximum: 10 }, creativity: { type: "number", minimum: 0, maximum: 10 },
-        notable_items: { type: "array", maxItems: 5, items: { type: "string", maxLength: 80 } },
-        evidence: { type: "array", maxItems: 5, items: { $ref: "#/$defs/evidence" } },
+        evidence: { type: "array", maxItems: 4, items: { $ref: "#/$defs/evidence" } },
         comment: { type: "string", minLength: 1, maxLength: 140 },
       },
     },
@@ -51,11 +51,11 @@ const schema = {
 } as const;
 
 const refereePrompt = `You are the referee for a satirical competitive game called LARP-OFF.
-You receive twenty chronological images: Player A at 2-second intervals from 2s through 20s, then Player B at those same intervals. The players are trying to out-larp each other by deliberately presenting visible objects, surroundings, props, outfits, setups, vehicles, accessories, or ridiculous flexes during a twenty-second round.
+You receive ten chronological images: Player A at 4, 8, 12, 16, and 20 seconds, then Player B at those same timestamps. The players are trying to out-larp each other by deliberately presenting visible objects, surroundings, props, outfits, setups, vehicles, accessories, or ridiculous flexes during a twenty-second round.
 
 Judge only what is visibly presented and the theatrical presentation. Score both players comparatively from 0.0 to 10.0 in item_larp (visual impact, humor, extravagance, or strength of visible items/settings), aura (confidence, framing, swagger, timing, and theatrical energy), commitment (effort and commitment to the bit), and creativity (originality, humor, and clever use of surroundings).
 
-Create exactly ten timeline moments for seconds 2, 4, 6, 8, 10, 12, 14, 16, 18, and 20. At each moment, give each player's cumulative larp strength from 0.0 to 10.0 based on what has been visibly presented up to that point, plus one concise play-by-play callout about the specific visible swing.
+Create exactly five timeline moments for seconds 4, 8, 12, 16, and 20. At each moment, give each player's cumulative larp strength from 0.0 to 10.0 based on what has been visibly presented up to that point, plus one concise play-by-play callout about the specific visible swing.
 
 Keep the tone funny, exaggerated, internet-native, playful, and concise. Give concrete evidence callouts for visible items that affected scoring. Recognize clearly visible branded logos (for example a Peter Millar logo), cash, sunglasses, luxury-looking props, vehicles, and a banking or account screen as larp material. A clear branded logo or well-presented prop can earn an explicit bonus from 0.0 to 2.0. The four final category scores must already include the effect of every listed evidence bonus; the UI displays those bonuses as an explanation and does not add them a second time. Only name a brand when its logo or name is genuinely legible; do not authenticate it. A banking/account screen may be described generically as financial-screen larp, but never transcribe or repeat account numbers, routing numbers, exact balances, names, addresses, or other private data.
 
@@ -85,8 +85,8 @@ function cleanPlayer(value: Record<string, unknown>) {
   const clamp = (score: unknown) => Math.max(0, Math.min(10, Number(score) || 0));
   return {
     item_larp: clamp(value.item_larp), aura: clamp(value.aura), commitment: clamp(value.commitment), creativity: clamp(value.creativity),
-    notable_items: Array.isArray(value.notable_items) ? value.notable_items.slice(0, 5).map((item) => String(item).slice(0, 80)) : [],
-    evidence: Array.isArray(value.evidence) ? value.evidence.slice(0, 5).map((item) => {
+    notable_items: [],
+    evidence: Array.isArray(value.evidence) ? value.evidence.slice(0, 4).map((item) => {
       const record = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
       return { label: String(record.label || "Visible flex").slice(0, 48), observation: String(record.observation || "The oracle noticed.").slice(0, 120), bonus: Math.max(0, Math.min(2, Number(record.bonus) || 0)) };
     }) : [],
@@ -101,19 +101,22 @@ function cleanTimeline(value: unknown, playerA: ReturnType<typeof cleanPlayer>, 
   return Array.from({ length: FRAME_COUNT }, (_, index) => {
     const row = (rows[index] && typeof rows[index] === "object" ? rows[index] : {}) as Record<string, unknown>;
     const clamp = (score: unknown, fallback: number) => Math.max(0, Math.min(10, Number.isFinite(Number(score)) ? Number(score) : fallback));
-    return { second: (index + 1) * 2, playerA: clamp(row.playerA, fallbackA), playerB: clamp(row.playerB, fallbackB), callout: String(row.callout || "Aura levels remain under review.").slice(0, 120) };
+    return { second: CAPTURE_SECONDS[index], playerA: clamp(row.playerA, fallbackA), playerB: clamp(row.playerB, fallbackB), callout: String(row.callout || "Aura levels remain under review.").slice(0, 120) };
   });
 }
 
+function validateFrame(frame: unknown) {
+  if (typeof frame !== "string" || !frame.startsWith("data:image/jpeg;base64,")) throw new Error("Frame must be a JPEG data URL");
+  if (frame.length > 350_000) throw new Error("A frame exceeds the 350 KB limit");
+  return frame;
+}
+
 function validateImages(images: unknown): { playerA: string[]; playerB: string[] } {
-  if (!images || typeof images !== "object") throw new Error("Twenty JPEG frames are required");
+  if (!images || typeof images !== "object") throw new Error("Ten JPEG frames are required");
   const record = images as Record<string, unknown>;
   const validateSet = (value: unknown) => {
     if (!Array.isArray(value) || value.length !== FRAME_COUNT) throw new Error(`Exactly ${FRAME_COUNT} frames per player are required`);
-    return value.map((frame) => {
-      if (typeof frame !== "string" || !frame.startsWith("data:image/jpeg;base64,")) throw new Error("Frames must be JPEG data URLs");
-      if (frame.length > 350_000) throw new Error("A frame exceeds the 350 KB limit"); return frame;
-    });
+    return value.map(validateFrame);
   };
   return { playerA: validateSet(record.playerA), playerB: validateSet(record.playerB) };
 }
@@ -152,18 +155,18 @@ Deno.serve(async (request) => {
     if (claim?.state !== "claimed") return reply(origin, { error: "Match is not ready for judging" }, 409);
 
     const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-    const content: any[] = [{ type: "input_text", text: "Judge this LARP-OFF round. Compare matching timestamps and return the complete ten-moment evaluation timeline." }];
+    const content: any[] = [{ type: "input_text", text: "Judge this LARP-OFF round. Compare matching timestamps and return the complete five-moment evaluation timeline. Be concise." }];
     for (const [player, frames] of [["A", images.playerA], ["B", images.playerB]] as const) {
       frames.forEach((image, index) => {
-        content.push({ type: "input_text", text: `Player ${player} at ${(index + 1) * 2} seconds` });
-        content.push({ type: "input_image", image_url: image, detail: "high" });
+        content.push({ type: "input_text", text: `Player ${player} at ${CAPTURE_SECONDS[index]} seconds` });
+        content.push({ type: "input_image", image_url: image, detail: "low" });
       });
     }
     const response = await openai.responses.create({
       model: "gpt-4o-mini", instructions: refereePrompt,
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "larp_off_verdict", strict: true, schema } },
-      max_output_tokens: 2400, store: false, safety_identifier: clientId,
+      max_output_tokens: 1600, store: false, safety_identifier: clientId,
     });
     const parsed = parseModelJson(response.output_text);
     const playerA = cleanPlayer((parsed.playerA || {}) as Record<string, unknown>);

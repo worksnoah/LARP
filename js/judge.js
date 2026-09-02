@@ -1,5 +1,5 @@
-import { getSupabase, fetchMatch } from "./matchmaking.js?v=20260902c";
-import { CAPTURE_TIMES_SECONDS } from "./config.js?v=20260902c";
+import { getSupabase, fetchMatch } from "./matchmaking.js?v=20260902d";
+import { CAPTURE_TIMES_SECONDS } from "./config.js?v=20260902d";
 
 export async function requestJudgment(matchId, clientId, frames) {
   const expected = CAPTURE_TIMES_SECONDS.length;
@@ -9,15 +9,6 @@ export async function requestJudgment(matchId, clientId, frames) {
   });
   if (error) throw new Error(error.context?.body?.message || error.message || "AI judging failed");
   if (!data?.result) throw new Error("The oracle returned no verdict."); return data.result;
-}
-
-export async function requestLiveEvaluation(matchId, clientId, second, imageA, imageB) {
-  const { data, error } = await getSupabase().functions.invoke("judge-larp", {
-    body: { mode: "pulse", match_id: matchId, client_id: clientId, second, imageA, imageB },
-  });
-  if (error) throw new Error(error.context?.body?.message || error.message || "Live evaluation failed");
-  if (!data?.pulse) throw new Error("The live oracle returned no evaluation.");
-  return data.pulse;
 }
 
 export function waitForPersistedResult(matchId, clientId, { timeoutMs = 55000, intervalMs = 1800 } = {}) {

@@ -1,4 +1,4 @@
-import { ICE_SERVERS } from "./config.js?v=20260902c";
+import { ICE_SERVERS } from "./config.js?v=20260902d";
 
 export class PeerSession {
   constructor({ supabase, match, clientId, localStream, onRemoteStream, onMatchEvent, onFailure, onOpponentLeft }) {

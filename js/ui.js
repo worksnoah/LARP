@@ -72,7 +72,7 @@ export function startLiveEvaluation() {
   $("#screen-arena").classList.add("is-live-eval");
   $("#live-eval-time").textContent = "Waiting for 04s scan";
   $("#live-eval-you").textContent = "—"; $("#live-eval-them").textContent = "—";
-  $("#live-eval-callout").textContent = "Present your strongest larp.";
+  $("#live-eval-callout").textContent = "On-device meter // zero API usage";
   $("#live-eval-marker").style.left = "50%";
   $("#live-eval-meter").style.background = "linear-gradient(90deg,var(--lime) 0 50%,var(--purple) 50% 100%)";
 }

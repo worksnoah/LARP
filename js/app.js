@@ -1,11 +1,11 @@
 import { AppState, app, getClientId, resetMatchState, transition, updateSession } from "./state.js";
-import { CAPTURE_TIMES_SECONDS, isConfigured, MATCH_DURATION_SECONDS } from "./config.js?v=20260902c";
-import { initUI, elements, attachLocalStream, attachRemoteStream, setConnecting, renderCountdown, hideCountdown, setTimer, setJudgeStills, renderResult, resetUI, showConfigHint, startLiveEvaluation, updateLiveEvaluation } from "./ui.js?v=20260902c";
-import { Matchmaker, getSupabase, updateMatchStatus, abandonMatch } from "./matchmaking.js?v=20260902c";
-import { PeerSession } from "./webrtc.js?v=20260902c";
-import { BattleAudio } from "./audio.js?v=20260902c";
-import { FrameCollector, captureFrame } from "./capture.js?v=20260902c";
-import { requestJudgment, requestLiveEvaluation, waitForPersistedResult } from "./judge.js?v=20260902c";
+import { CAPTURE_TIMES_SECONDS, isConfigured, MATCH_DURATION_SECONDS } from "./config.js?v=20260902d";
+import { initUI, elements, attachLocalStream, attachRemoteStream, setConnecting, renderCountdown, hideCountdown, setTimer, setJudgeStills, renderResult, resetUI, showConfigHint, startLiveEvaluation, updateLiveEvaluation } from "./ui.js?v=20260902d";
+import { Matchmaker, getSupabase, updateMatchStatus, abandonMatch } from "./matchmaking.js?v=20260902d";
+import { PeerSession } from "./webrtc.js?v=20260902d";
+import { BattleAudio } from "./audio.js?v=20260902d";
+import { FrameCollector, captureFrame } from "./capture.js?v=20260902d";
+import { requestJudgment, waitForPersistedResult } from "./judge.js?v=20260902d";
 
 const audio = new BattleAudio();
 let matchmaker = null, collector = null, countdownTimer = null, battleFrame = null, resultPollToken = 0;
@@ -134,14 +134,9 @@ function beginBattle(startAt, duration = MATCH_DURATION_SECONDS, trackIndex = ap
   tick();
 }
 
-async function scoreCapturedFrame(second, frames) {
+function scoreCapturedFrame(_second, _frames, pulse) {
   if (!app.peer?.isPlayerA || !app.match) return;
-  const matchId = app.match.id, imageA = frames.playerA.at(-1), imageB = frames.playerB.at(-1);
-  try {
-    const pulse = await requestLiveEvaluation(matchId, getClientId(), second, imageA, imageB);
-    if (app.match?.id !== matchId) return;
-    applyLiveEvaluation(pulse); await app.peer?.broadcast("live-eval", { pulse });
-  } catch (error) { console.warn("Live evaluation skipped", error); }
+  applyLiveEvaluation(pulse); app.peer.broadcast("live-eval", { pulse }).catch(() => {});
 }
 
 function applyLiveEvaluation(pulse) {

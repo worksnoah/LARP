@@ -1,4 +1,4 @@
-import { AUDIO_TRACKS } from "./config.js?v=20260902c";
+import { AUDIO_TRACKS } from "./config.js?v=20260902d";
 
 export class BattleAudio {
   constructor() { this.context = null; this.master = null; this.buffers = new Map(); this.source = null; this.muted = false; this.loading = null; this.loadComplete = false; this.pendingPlay = null; }

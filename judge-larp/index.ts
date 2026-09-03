@@ -17,14 +17,14 @@ const schema = {
       type: "array", minItems: FRAME_COUNT, maxItems: FRAME_COUNT,
       items: { $ref: "#/$defs/moment" },
     },
-    match_commentary: { type: "string", minLength: 1, maxLength: 180 },
+    match_commentary: { type: "string", minLength: 1, maxLength: 120 },
   },
   $defs: {
     evidence: {
       type: "object", additionalProperties: false, required: ["label", "observation", "bonus"],
       properties: {
         label: { type: "string", minLength: 1, maxLength: 48 },
-        observation: { type: "string", minLength: 1, maxLength: 120 },
+        observation: { type: "string", minLength: 1, maxLength: 80 },
         bonus: { type: "number", minimum: 0, maximum: 2 },
       },
     },
@@ -34,7 +34,7 @@ const schema = {
         second: { type: "integer", minimum: 4, maximum: 20 },
         playerA: { type: "number", minimum: 0, maximum: 10 },
         playerB: { type: "number", minimum: 0, maximum: 10 },
-        callout: { type: "string", minLength: 1, maxLength: 120 },
+        callout: { type: "string", minLength: 1, maxLength: 80 },
       },
     },
     player: {
@@ -43,8 +43,8 @@ const schema = {
       properties: {
         item_larp: { type: "number", minimum: 0, maximum: 10 }, aura: { type: "number", minimum: 0, maximum: 10 },
         commitment: { type: "number", minimum: 0, maximum: 10 }, creativity: { type: "number", minimum: 0, maximum: 10 },
-        evidence: { type: "array", maxItems: 4, items: { $ref: "#/$defs/evidence" } },
-        comment: { type: "string", minLength: 1, maxLength: 140 },
+        evidence: { type: "array", maxItems: 2, items: { $ref: "#/$defs/evidence" } },
+        comment: { type: "string", minLength: 1, maxLength: 100 },
       },
     },
   },
@@ -86,11 +86,11 @@ function cleanPlayer(value: Record<string, unknown>) {
   return {
     item_larp: clamp(value.item_larp), aura: clamp(value.aura), commitment: clamp(value.commitment), creativity: clamp(value.creativity),
     notable_items: [],
-    evidence: Array.isArray(value.evidence) ? value.evidence.slice(0, 4).map((item) => {
+    evidence: Array.isArray(value.evidence) ? value.evidence.slice(0, 2).map((item) => {
       const record = (item && typeof item === "object" ? item : {}) as Record<string, unknown>;
-      return { label: String(record.label || "Visible flex").slice(0, 48), observation: String(record.observation || "The oracle noticed.").slice(0, 120), bonus: Math.max(0, Math.min(2, Number(record.bonus) || 0)) };
+      return { label: String(record.label || "Visible flex").slice(0, 48), observation: String(record.observation || "The oracle noticed.").slice(0, 80), bonus: Math.max(0, Math.min(2, Number(record.bonus) || 0)) };
     }) : [],
-    comment: String(value.comment ?? "").slice(0, 140),
+    comment: String(value.comment ?? "").slice(0, 100),
   };
 }
 
@@ -101,7 +101,7 @@ function cleanTimeline(value: unknown, playerA: ReturnType<typeof cleanPlayer>, 
   return Array.from({ length: FRAME_COUNT }, (_, index) => {
     const row = (rows[index] && typeof rows[index] === "object" ? rows[index] : {}) as Record<string, unknown>;
     const clamp = (score: unknown, fallback: number) => Math.max(0, Math.min(10, Number.isFinite(Number(score)) ? Number(score) : fallback));
-    return { second: CAPTURE_SECONDS[index], playerA: clamp(row.playerA, fallbackA), playerB: clamp(row.playerB, fallbackB), callout: String(row.callout || "Aura levels remain under review.").slice(0, 120) };
+    return { second: CAPTURE_SECONDS[index], playerA: clamp(row.playerA, fallbackA), playerB: clamp(row.playerB, fallbackB), callout: String(row.callout || "Aura levels remain under review.").slice(0, 80) };
   });
 }
 
@@ -163,15 +163,16 @@ Deno.serve(async (request) => {
       });
     }
     const response = await openai.responses.create({
-      model: "gpt-4o-mini", instructions: refereePrompt,
+      model: "gpt-4o-mini-2024-07-18", instructions: refereePrompt,
       input: [{ role: "user", content }],
       text: { format: { type: "json_schema", name: "larp_off_verdict", strict: true, schema } },
-      max_output_tokens: 1600, store: false, safety_identifier: clientId,
+      max_output_tokens: 900, store: false, safety_identifier: clientId,
     });
+    console.log("judge-larp usage", JSON.stringify({ model: response.model, usage: response.usage }));
     const parsed = parseModelJson(response.output_text);
     const playerA = cleanPlayer((parsed.playerA || {}) as Record<string, unknown>);
     const playerB = cleanPlayer((parsed.playerB || {}) as Record<string, unknown>);
-    const result = { playerA, playerB, timeline: cleanTimeline(parsed.timeline, playerA, playerB), match_commentary: String(parsed.match_commentary || "A historic aura collision.").slice(0, 180) };
+    const result = { playerA, playerB, timeline: cleanTimeline(parsed.timeline, playerA, playerB), match_commentary: String(parsed.match_commentary || "A historic aura collision.").slice(0, 120) };
     const { data: completed, error: completeError } = await supabase.rpc("complete_larp_judging", { p_match_id: matchId, p_claim_id: claimId, p_result: result });
     if (completeError || !completed) throw completeError || new Error("Could not save verdict");
     return reply(origin, { result });
